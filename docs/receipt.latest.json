@@ -1,0 +1,38 @@
+### 2) `.github/workflows/emit.yml`
+```yaml
+name: Emit mesh receipt
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mesh-receipt
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure folders
+        run: |
+          mkdir -p logs docs schema scripts
+
+      - name: Emit receipt (simulate if no events)
+        run: |
+          node -v || true
+          echo "Using system Node"
+          node scripts/emit_receipt.js || (echo "::error ::emit failed" && exit 1)
+          test -f docs/receipt.latest.json || (echo "::error ::no receipt written" && exit 1)
+
+      - name: Commit receipt
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/receipt.latest.json
+          git diff --staged --quiet && echo "no changes" || git commit -m "ci: update mesh receipt"
+          git push
