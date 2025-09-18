@@ -1,0 +1,115 @@
+<!doctype html><meta charset="utf-8">
+<title>OpenLine — Mesh Health</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{--bg:#fafafa;--card:#fff;--muted:#6a6a6a;--ok:#0a0;--warn:#c80;--bad:#c00;--line:#eee}
+  body{font:16px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;margin:28px;background:var(--bg)}
+  h1{font-size:28px;margin:0 0 6px}
+  p.lead{color:#555;margin:0 0 18px}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .tile{flex:1 1 360px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  .muted{color:var(--muted)}
+  .small{font-size:13px}
+  .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  code{background:#f3f3f3;padding:2px 6px;border-radius:6px}
+  .hint{margin-top:8px;padding:10px;border-radius:10px;background:#f7fbff;border:1px solid #e5f0ff}
+  .kv{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .kv span{background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:4px 8px}
+  .err{padding:10px;border-radius:10px;background:#fff3f3;border:1px solid #ffd0d0}
+</style>
+
+<script type="module" src="https://cdn.jsdelivr.net/gh/terryncew/openline-core@main/receipts-kit/openline-card.js"></script>
+
+<h1>Mesh Health</h1>
+<p class="lead">One card. Delivery, latency, reach. The card tells you what went wrong and the one lever to pull.</p>
+
+<div class="row">
+  <div class="tile">
+    <div class="pill" id="statusPill" hidden>
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">status</span>
+    </div>
+
+    <div class="muted" style="margin:10px 0 6px">Latest receipt</div>
+    <div id="cardBox" class="muted">Loading…</div>
+
+    <div class="hint small" id="whyBox" hidden><b>Why not green:</b> <span id="whyText"></span></div>
+    <div class="hint small" id="fixBox" hidden><b>Try next:</b> <span id="fixText"></span></div>
+
+    <div class="kv small" id="glance" hidden>
+      <span>delivery <b id="g-del"></b></span>
+      <span>p95 <b id="g-p95"></b>ms</span>
+      <span>peers <b id="g-peers"></b></span>
+      <span>hops <b id="g-hops"></b></span>
+      <span>ttl <b id="g-ttl"></b></span>
+    </div>
+
+    <p class="small muted" style="margin-top:10px">
+      Source: <a href="./receipt.latest.json"><code>docs/receipt.latest.json</code></a>
+    </p>
+  </div>
+
+  <div class="tile">
+    <div class="muted" style="margin-bottom:8px">Run it again</div>
+    <ol class="small" style="margin:0 0 10px 18px">
+      <li>GitHub → <b>Actions</b> → <i>Emit mesh receipt</i></li>
+      <li>Tap <b>Run workflow</b></li>
+      <li>Refresh this page</li>
+    </ol>
+    <p class="small muted">Green = invariants met. Amber/Red = pill explains exact miss + the one fix.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const pill = $('statusPill'), dot = $('statusDot'), txt = $('statusText');
+  const whyBox = $('whyBox'), whyText = $('whyText');
+  const fixBox = $('fixBox'), fixText = $('fixText');
+  const gl = $('glance'), cardBox = $('cardBox');
+
+  const dotColor = s => ({green:'#0a0', amber:'#c80', red:'#c00'}[s]||'#bbb');
+  const klass = s => (s==='green'?'ok':(s==='amber'?'warn':'bad'));
+
+  const url = new URL('receipt.latest.json', location.href);
+  url.searchParams.set('v', Date.now().toString());
+
+  fetch(url, {cache:'no-store'})
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(j=>{
+      const card = document.createElement('openline-card');
+      card.setAttribute('mode','compact');
+      card.setAttribute('src', url.pathname + url.search);
+      cardBox.replaceChildren(card);
+
+      const t = j.telem || {};
+      const del = +(t.delivery_success||0);
+      const p95 = +(t.latency_ms_p95||0);
+      const peers = +(t.reach_peers||0);
+      const hops = +(t.hops_median||0);
+      const ttl  = t.radio && t.radio.ttl;
+
+      let s = (j.attrs && j.attrs.status) || j.status || 'amber';
+      txt.textContent = s; dot.style.background = dotColor(s);
+      pill.className = 'pill ' + klass(s); pill.hidden = false;
+
+      let why = Array.isArray(j.but) && j.but[0] || '';
+      if (s!=='green' && why){ whyText.textContent = why; whyBox.hidden = false; }
+
+      const fix = (typeof j.so==='string' && j.so.trim()) ? j.so.trim() : '';
+      if (s!=='green' && fix){ fixText.textContent = fix; fixBox.hidden = false; }
+
+      $('g-del').textContent = (del*100).toFixed(1)+'%';
+      $('g-p95').textContent = (p95|0);
+      $('g-peers').textContent = peers;
+      $('g-hops').textContent = hops||0;
+      $('g-ttl').textContent = (ttl|0);
+      gl.hidden = false;
+    })
+    .catch(err=>{
+      cardBox.innerHTML = `<div class="err"><b>No JSON found</b> (${err.message}). Run <i>Actions → Emit mesh receipt</i>.</div>`;
+    });
+})();
+</script>
