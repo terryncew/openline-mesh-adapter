@@ -1,38 +1,34 @@
-### 2) `.github/workflows/emit.yml`
-```yaml
-name: Emit mesh receipt
-
-on:
-  workflow_dispatch: {}
-
-permissions:
-  contents: write
-
-concurrency:
-  group: mesh-receipt
-  cancel-in-progress: true
-
-jobs:
-  run:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Ensure folders
-        run: |
-          mkdir -p logs docs schema scripts
-
-      - name: Emit receipt (simulate if no events)
-        run: |
-          node -v || true
-          echo "Using system Node"
-          node scripts/emit_receipt.js || (echo "::error ::emit failed" && exit 1)
-          test -f docs/receipt.latest.json || (echo "::error ::no receipt written" && exit 1)
-
-      - name: Commit receipt
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/receipt.latest.json
-          git diff --staged --quiet && echo "no changes" || git commit -m "ci: update mesh receipt"
-          git push
+{
+  "claim": "Mesh is live and healthy",
+  "because": [
+    "delivery 100.0% in last 10m",
+    "latency p50 1116ms / p95 1629ms",
+    "reach 75 peers · median hops 3"
+  ],
+  "but": [],
+  "so": "hold parameters; monitor battery",
+  "telem": {
+    "window_sec": 600,
+    "delivery_success": 1,
+    "latency_ms_p50": 1117,
+    "latency_ms_p95": 1630,
+    "reach_peers": 75,
+    "hops_median": 3,
+    "radio": {
+      "tx_dbm": 4,
+      "adv_interval_ms": 400,
+      "ttl": 3,
+      "wifi_direct": false
+    }
+  },
+  "threshold": {
+    "delivery": 0.95,
+    "p95_ms": 2000,
+    "ttl_max": 4
+  },
+  "model": "mesh/bluetooth-wifi-store-and-forward",
+  "attrs": {
+    "status": "green"
+  },
+  "next_try": null
+}
