@@ -1,0 +1,17 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"OpenLine Mesh Receipt",
+  "type":"object",
+  "required":["claim","because","but","so","telem","threshold","model","attrs"],
+  "properties":{
+    "claim":{"type":"string"},
+    "because":{"type":"array","items":{"type":"string"},"minItems":1},
+    "but":{"type":"array","items":{"type":"string"}},
+    "so":{"type":"string"},
+    "telem":{"type":"object"},
+    "threshold":{"type":["object","number"]},
+    "model":{"type":"string"},
+    "attrs":{"type":"object"}
+  },
+  "additionalProperties":true
+}
